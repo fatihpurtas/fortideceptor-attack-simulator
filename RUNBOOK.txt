@@ -1,0 +1,89 @@
+==========================================================================
+  INF_Purple  |  FortiDeceptor PoC - RUNBOOK  (GENERIC)
+  Used the same way at any FortiDeceptor customer.
+==========================================================================
+
+FILES:
+  fortideceptor_poc_test.sh  = ENGINE (16 attack modules, you don't touch it)
+  fd_poc_runner.sh           = the tool you RUN
+  decoys.example.conf        = config template (optional)
+
+Both (engine + runner) must always be in the SAME folder.
+
+--------------------------------------------------------------------------
+0) PRE-DEMO PREP  (once, WITHOUT waiting for the meeting)
+   Pre-install the tools on the test host so nothing installs live:
+     sudo apt-get update && sudo apt-get install -y \
+       nmap netcat-openbsd curl smbclient snmp ldap-utils redis-tools sshpass hydra
+   (For Ubuntu. RHEL/CentOS: nmap nmap-ncat curl samba-client net-snmp-utils
+    openldap-clients redis sshpass hydra)
+
+--------------------------------------------------------------------------
+1) SEND FILES TO THE TEST HOST  (from your machine, VPN connected)
+     scp fortideceptor_poc_test.sh fd_poc_runner.sh USER@TESTHOST_IP:~/
+
+2) CONNECT
+     ssh USER@TESTHOST_IP
+     tmux new -s poc              # so the test survives a VPN drop
+     chmod +x *.sh
+
+3) PROVIDE THE DECOYS  (one of 3 ways - CSV is EASIEST)
+   a) FortiDeceptor > Deception > Decoy Status > "Export to CSV"
+      Then copy that file to the test host:
+         ./fd_poc_runner.sh --csv decoy_status.csv --list
+   b) or a config file:
+         ./fd_poc_runner.sh --config decoys.conf --list
+   c) or manually:
+         ./fd_poc_runner.sh --targets "10.0.0.5 10.0.0.6" --only ssh,smb,http
+
+   NOTE: If you omit modules, they are chosen from the decoy NAME
+        (SAP / DC / Ubuntu / camera / printer / OT ...).
+   NOTE: --list = show the plan only (no attack). Verify with this first.
+
+4) DRY RUN  (sends no packets)
+     ./fd_poc_runner.sh --csv decoy_status.csv --dry-run
+
+5) REAL TEST
+     ./fd_poc_runner.sh --csv decoy_status.csv
+   Targets the decoys in whatever subnet the test host is on (auto).
+   To try all subnet IPs, append:  --both
+   Specific subnet:  --net 83   (or the 3rd octet of the IP)
+
+6) WHEN DONE, NOTE
+     - Master CSV : ~/fd_poc_logs/MASTER_<date>.csv
+     - Source IP  : (shown on screen)
+     - Start/end time
+
+7) EXPORT FROM FORTIDECEPTOR
+     Incident, then Filter: Attacker IP = <source IP> + test time window
+              then Export to CSV
+
+8) COMPARISON
+     MASTER_<date>.csv (ours)  +  FortiDeceptor export
+     Match key: target decoy IP + service/protocol + time window
+     (FD aggregates many actions into fewer incidents, so compare at the
+      decoy+service level, not row-by-row.)
+
+--------------------------------------------------------------------------
+USEFUL OPTIONS
+--------------------------------------------------------------------------
+  --list                 show the plan only
+  --dry-run              show without sending packets
+  --both                 disable subnet filter (all IPs)
+  --net 83               only IPs with 3rd octet = 83
+  --decoys "SAP:10.0.0.5,10.1.0.5  DC:10.0.0.6"   inline decoys
+  -h | --help            help
+  tmux attach -t poc     reattach the session
+
+--------------------------------------------------------------------------
+DECOY NAME TO AUTO MODULE MAPPING
+--------------------------------------------------------------------------
+  *sap*                       :  sap, ssh, http, ftp
+  *win/wsrv/dc/domain/srv*    :  smb, rdp, dc (ldap/kerberos)
+  *ubuntu/linux/nix*          :  ssh, http, ftp, database
+  *cam/camera/nvr/dvr*        :  camera (rtsp/onvif), http, telnet
+  *print/iot/jetdirect/hp*    :  printer (9100/631/515), snmp, http
+  *scada/plc/modbus/ot*       :  ot (modbus/s7/bacnet)
+  unknown                     :  ssh,telnet,ftp,smb,http,rdp,database,snmp
+  (recon + portscan are added to every decoy automatically)
+==========================================================================

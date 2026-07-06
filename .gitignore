@@ -1,0 +1,11 @@
+# Test output
+fd_poc_logs/
+*.csv
+
+# Real (customer-specific) configs, never commit
+decoys.conf
+decoy_status.csv
+
+# OS / editor
+.DS_Store
+*.swp
