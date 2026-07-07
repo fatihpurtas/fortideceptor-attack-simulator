@@ -264,7 +264,7 @@ for i in "${!NAMES[@]}"; do
   echo "#  MODULES: $md"
   echo "######################################################################"
   FD_MASTER_CSV="$MASTER" FD_RUN_LABEL="$name" \
-    "$ENGINE" --targets "$ipf" --only "$md" --yes "${PASS_ARGS[@]:-}"
+    "$ENGINE" --targets "$ipf" --only "$md" --yes ${PASS_ARGS[@]+"${PASS_ARGS[@]}"}
 done
 
 # --- Summary --------------------------------------------------------------
